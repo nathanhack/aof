@@ -90,7 +90,7 @@ func readBulkString(reader *bufio.Reader, buf *bytes.Buffer) (string, error) {
 		return "", errors.New("bulk string requires '$' as prefix")
 	}
 
-	size, err := strconv.ParseInt(str[1:], 10, 64)
+	size, err := strconv.Atoi(str[1:])
 	if err != nil {
 		return "", fmt.Errorf("the size of the bulk string was not a parsable: %v", err)
 	}
@@ -100,7 +100,18 @@ func readBulkString(reader *bufio.Reader, buf *bytes.Buffer) (string, error) {
 		return "", err
 	}
 
-	if int64(len(str)) != size {
+	// for the case readline returned something smaller than the size
+	// as is the case for values containing \r\n
+	for len(str) < size && err == nil {
+		str += "\r\n" // we add back what the readline removed
+		tmp, err := readline(reader, buf)
+		if err != nil {
+			return "", err
+		}
+		str += tmp
+	}
+
+	if len(str) != size {
 		return "", fmt.Errorf("the size of the bulk string was not equal expected %v but found %v", size, len(str))
 	}
 
